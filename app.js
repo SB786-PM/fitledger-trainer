@@ -574,18 +574,26 @@ function modalBody() {
   if (modal.type === "session") {
     const client = clientById(modal.clientId);
     return `
-      <form class="form-grid" data-submit="session">
-        <p class="meta">${client?.name || ""}</p>
-        ${field("Date", "date", "date", todayIso(), true)}
-        <div class="field">
+      <form class="form-grid workout-form" data-submit="session">
+        <div class="workout-client">
+          <strong>${client?.name || "Client"}</strong>
+          <span>${client ? `${societyName(client.societyId)} · ${client.level}` : "Workout log"}</span>
+        </div>
+        <div class="field compact-field">
+          <label>Date</label>
+          <input name="date" type="date" value="${todayIso()}" required>
+        </div>
+        <div class="field compact-field">
           <label>Body parts</label>
           <div class="check-grid">
             ${bodyParts.map((part) => `<label class="check-pill"><input type="checkbox" name="bodyParts" value="${part}"> ${part}</label>`).join("")}
           </div>
         </div>
-        <div class="field"><label>Exercises done</label><textarea name="exercises" placeholder="Bench press, rows, planks..."></textarea></div>
-        <div class="field"><label>Notes</label><textarea name="notes"></textarea></div>
-        <button class="btn primary" type="submit">Save workout</button>
+        <div class="field compact-field"><label>Exercises done</label><textarea class="short-textarea" name="exercises" placeholder="Bench press, rows, planks..."></textarea></div>
+        <div class="field compact-field"><label>Notes</label><textarea class="short-textarea" name="notes"></textarea></div>
+        <div class="modal-actions">
+          <button class="btn primary" type="submit">Save workout</button>
+        </div>
       </form>
     `;
   }

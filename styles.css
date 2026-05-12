@@ -563,9 +563,39 @@ button.sync-pill {
   padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
 }
 
+.workout-form {
+  gap: 10px;
+}
+
+.workout-client {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid #bfe5cc;
+  border-radius: 8px;
+  background: #edf9ef;
+}
+
+.workout-client strong {
+  font-size: 1rem;
+}
+
+.workout-client span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.compact-field {
+  gap: 5px;
+}
+
+.short-textarea {
+  min-height: 58px;
+}
+
 .check-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -573,11 +603,26 @@ button.sync-pill {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 46px;
-  padding: 10px 11px;
+  min-height: 42px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+  font-size: 0.9rem;
+}
+
+.check-pill input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.modal-actions {
+  position: sticky;
+  bottom: calc(-18px - env(safe-area-inset-bottom));
+  display: grid;
+  padding: 10px 0 calc(2px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, #fff 82%, rgba(255, 255, 255, 0));
 }
 
 @media (max-width: 430px) {
@@ -611,6 +656,36 @@ button.sync-pill {
 
   .exercise-thumb {
     width: 74px;
+  }
+
+  .modal header {
+    padding: 12px 14px 10px;
+  }
+
+  .modal header h3 {
+    font-size: 1rem;
+  }
+
+  .modal-body {
+    padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .workout-form {
+    gap: 8px;
+  }
+
+  .field label {
+    font-size: 0.74rem;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    min-height: 42px;
+  }
+
+  .short-textarea {
+    min-height: 52px;
   }
 }
 
