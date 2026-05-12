@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img" aria-label="Core exercise reference">
+  <rect width="320" height="220" rx="10" fill="#f4f6ed"/>
+  <circle cx="160" cy="42" r="22" fill="#3b4727"/>
+  <path d="M108 76h104l18 96H90l18-96Z" fill="#e3ead3" stroke="#3b4727" stroke-width="8"/>
+  <path d="M132 92h56M128 116h64M128 140h64M142 92v66M178 92v66" stroke="#1f8f5f" stroke-width="8" stroke-linecap="round"/>
+  <path d="M88 112H50M232 112h38" stroke="#3b4727" stroke-width="10" stroke-linecap="round"/>
+  <text x="160" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#3b4727">CORE</text>
+</svg>

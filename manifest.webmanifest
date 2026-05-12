@@ -1,0 +1,25 @@
+{
+  "name": "FitLedger Trainer",
+  "short_name": "FitLedger",
+  "description": "Client, payment, workout, and finance tracker for freelance gym trainers.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fbfdf8",
+  "theme_color": "#1f8f5f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img" aria-label="Legs exercise reference">
+  <rect width="320" height="220" rx="10" fill="#fff7e8"/>
+  <circle cx="160" cy="42" r="22" fill="#574119"/>
+  <path d="M118 78h84l16 48H102l16-48Z" fill="#f5dfb6" stroke="#574119" stroke-width="8"/>
+  <path d="M128 126 102 178M192 126l26 52" stroke="#c78416" stroke-width="16" stroke-linecap="round"/>
+  <path d="M112 182h-34M208 182h34" stroke="#574119" stroke-width="12" stroke-linecap="round"/>
+  <path d="M94 108H58M226 108h36" stroke="#574119" stroke-width="10" stroke-linecap="round"/>
+  <text x="160" y="206" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#574119">LEGS</text>
+</svg>
