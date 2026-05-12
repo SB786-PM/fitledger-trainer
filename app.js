@@ -113,6 +113,7 @@ let config = loadConfig();
 let syncStatus = config.webAppUrl ? "Connected" : "Local only";
 let activeView = "clients";
 let selectedClientId = state.clients[0]?.id || "";
+let clientDetailOpen = false;
 let modal = null;
 
 function loadState() {
@@ -152,6 +153,20 @@ function money(value) {
 function formatDate(value) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${value}T00:00:00`));
+}
+
+function shortDate(value) {
+  return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short" }).format(new Date(`${value}T00:00:00`));
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function toIsoDate(date) {
+  return date.toISOString().slice(0, 10);
 }
 
 function societyName(id) {
@@ -223,6 +238,8 @@ function appChrome(content) {
 
 function clientsView() {
   const selected = clientById(selectedClientId) || state.clients[0];
+  if (clientDetailOpen && selected) return clientDetailView(selected);
+
   const cards = state.clients.length
     ? state.clients
     .map((client) => {
@@ -244,7 +261,6 @@ function clientsView() {
           <div class="actions">
             <button class="btn primary" data-select-client="${client.id}">Open</button>
             <button class="btn" data-modal="session" data-client="${client.id}">Log workout</button>
-            <button class="btn whatsapp" data-wa="${client.id}">WhatsApp</button>
           </div>
         </article>
       `;
@@ -271,54 +287,97 @@ function clientsView() {
         </div>
         <div class="client-list">${cards}</div>
       </div>
-      ${selected ? clientDetail(selected) : `<div class="empty">Add your first client.</div>`}
     </section>
   `);
 }
 
-function clientDetail(client) {
+function clientDetailView(client) {
   const payment = paymentForClient(client.id);
-  const sessions = state.sessions
-    .filter((session) => session.clientId === client.id)
-    .sort((a, b) => b.date.localeCompare(a.date));
-  const timeline = sessions.length
-    ? sessions
-        .map(
-          (session) => `
-          <div class="timeline-item">
-            <strong>${formatDate(session.date)} · ${session.attended ? "Present" : "Absent"}</strong>
-            <div class="chips">${session.bodyParts.map((part) => `<span class="chip">${part}</span>`).join("") || `<span class="chip missed">No workout</span>`}</div>
-            <small class="meta">${session.exercises || session.notes || "No notes added"}</small>
-          </div>
-        `
-        )
-        .join("")
-    : `<div class="empty">No attendance or workout logs yet.</div>`;
+  const sessions = sessionsForClient(client.id);
+  const week = lastSevenWorkoutDays(client.id);
+  const trainedParts = [...new Set(week.flatMap((day) => day.sessions.flatMap((session) => session.bodyParts)))];
+  const nextParts = bodyParts.filter((part) => !trainedParts.includes(part)).slice(0, 3);
 
-  return `
-    <aside class="panel">
-      <div class="section-head">
-        <h3>${client.name}</h3>
+  return appChrome(`
+    <div class="view-title">
+      <div>
+        <button class="btn ghost back-btn" data-client-back>Back</button>
+        <h2>${client.name}</h2>
+        <p>${societyName(client.societyId)} · ${client.level} · Joined ${formatDate(client.startDate)}</p>
+      </div>
+      <div class="actions">
+        <button class="btn primary" data-modal="session" data-client="${client.id}">Log workout</button>
         <button class="btn" data-modal="payment" data-client="${client.id}">Record payment</button>
       </div>
-      <div class="chips">
-        <span class="chip">${societyName(client.societyId)}</span>
-        <span class="chip">${client.level}</span>
-        <span class="chip">Joined ${formatDate(client.startDate)}</span>
-      </div>
-      <div class="finance-row">
-        <div>
-          <strong>Current payment</strong>
-          <small>Due ${formatDate(payment?.dueDate)}</small>
+    </div>
+    <section class="detail-top">
+      <div class="panel">
+        <div class="section-head">
+          <h3>Last 7 days</h3>
+          <small>${sessions.length} total logs</small>
         </div>
-        <div class="amount">${payment?.status === "Paid" ? "Paid" : money(payment?.amount || client.monthlyFee)}</div>
+        <div class="week-list">
+          ${week.map(workoutDayCard).join("")}
+        </div>
       </div>
-      <div class="section-head">
-        <h3>Recent training</h3>
-        <button class="btn" data-modal="session" data-client="${client.id}">Add log</button>
+      <aside class="panel">
+        <div class="section-head">
+          <h3>Recommendation hint</h3>
+        </div>
+        <p class="meta">Recently trained</p>
+        <div class="chips">${trainedParts.map((part) => `<span class="chip">${part}</span>`).join("") || `<span class="chip missed">No workouts in last 7 days</span>`}</div>
+        <p class="meta gap-top">Consider next</p>
+        <div class="chips">${nextParts.map((part) => `<span class="chip due">${part}</span>`).join("") || `<span class="chip paid">Balanced week</span>`}</div>
+        <div class="finance-row">
+          <div>
+            <strong>Current payment</strong>
+            <small>Due ${formatDate(payment?.dueDate)}</small>
+          </div>
+          <div class="amount">${payment?.status === "Paid" ? "Paid" : money(payment?.amount || client.monthlyFee)}</div>
+        </div>
+      </aside>
+    </section>
+  `);
+}
+
+function sessionsForClient(clientId) {
+  return state.sessions
+    .filter((session) => session.clientId === clientId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function lastSevenWorkoutDays(clientId) {
+  const today = new Date(`${todayIso()}T00:00:00`);
+  const sessions = sessionsForClient(clientId);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = toIsoDate(addDays(today, -index));
+    return {
+      date,
+      sessions: sessions.filter((session) => session.date === date)
+    };
+  });
+}
+
+function workoutDayCard(day) {
+  const content = day.sessions.length
+    ? day.sessions
+        .map((session) => `
+          <div class="day-session">
+            <div class="chips">${session.bodyParts.map((part) => `<span class="chip">${part}</span>`).join("") || `<span class="chip missed">No body parts</span>`}</div>
+            <small class="meta">${session.exercises || session.notes || "No notes added"}</small>
+          </div>
+        `)
+        .join("")
+    : `<small class="meta">No workout logged</small>`;
+
+  return `
+    <article class="week-day ${day.sessions.length ? "trained" : ""}">
+      <div class="day-date">
+        <strong>${shortDate(day.date)}</strong>
+        <span>${day.sessions.length ? `${day.sessions.length} log${day.sessions.length > 1 ? "s" : ""}` : "Rest / not logged"}</span>
       </div>
-      <div class="timeline">${timeline}</div>
-    </aside>
+      <div class="day-work">${content}</div>
+    </article>
   `;
 }
 
@@ -686,6 +745,7 @@ function loadSheetData() {
       cleanup();
       state = normalizeRemoteData(data);
       selectedClientId = state.clients[0]?.id || "";
+      clientDetailOpen = false;
       syncStatus = "Connected";
       saveState();
       render();
@@ -856,12 +916,22 @@ document.addEventListener("click", (event) => {
   const view = event.target.closest("[data-view]");
   if (view) {
     activeView = view.dataset.view;
+    if (activeView !== "clients") clientDetailOpen = false;
     render();
   }
 
   const select = event.target.closest("[data-select-client]");
   if (select) {
     selectedClientId = select.dataset.selectClient;
+    clientDetailOpen = true;
+    activeView = "clients";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    render();
+  }
+
+  const clientBack = event.target.closest("[data-client-back]");
+  if (clientBack) {
+    clientDetailOpen = false;
     render();
   }
 
