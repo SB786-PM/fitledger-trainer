@@ -450,6 +450,21 @@ button.sync-pill {
   text-align: center;
 }
 
+.notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbf3;
+  color: var(--muted);
+}
+
+.notice.error {
+  border-color: #f0c4c4;
+  background: #fff0f0;
+  color: #8a2626;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

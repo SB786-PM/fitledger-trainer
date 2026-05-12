@@ -464,7 +464,7 @@ function exercisesView() {
 }
 
 function renderModal() {
-  const title = { client: "Add client", society: "Add society", session: "Log workout", payment: "Record payment", exercise: "Add exercise", settings: "Google Sheets sync" }[modal.type];
+  const title = { client: "Add client", society: "Add society", session: "Log workout", payment: "Record payment", exercise: "Add exercise", settings: "Google Sheets sync", reminder: "WhatsApp reminder" }[modal.type];
   return `
     <div class="modal-backdrop">
       <section class="modal">
@@ -501,7 +501,7 @@ function modalBody() {
     return `
       <form class="form-grid two" data-submit="client">
         ${field("Name", "name", "text", "", true)}
-        ${field("Phone with country code", "phone", "tel", "91", true)}
+        ${field("Phone number", "phone", "tel", "", true, "10-digit India number or full country code")}
         <div class="field"><label>Society</label><select name="societyId">${state.societies.map((s) => `<option value="${s.id}">${s.name}</option>`).join("")}</select></div>
         ${field("Start date", "startDate", "date", todayIso(), true)}
         ${field("Monthly fee", "monthlyFee", "number", "3500", true)}
@@ -561,6 +561,21 @@ function modalBody() {
     `;
   }
 
+  if (modal.type === "reminder") {
+    return `
+      <div class="form-grid">
+        ${modal.error ? `<p class="notice error">${modal.error}</p>` : ""}
+        <div class="field">
+          <label>Message</label>
+          <textarea readonly>${modal.message}</textarea>
+        </div>
+        <div class="actions">
+          <button class="btn primary" type="button" data-copy-reminder>Copy message</button>
+        </div>
+      </div>
+    `;
+  }
+
   return `
     <form class="form-grid" data-submit="exercise">
       ${field("Exercise name", "name", "text", "", true)}
@@ -574,17 +589,59 @@ function modalBody() {
   `;
 }
 
-function field(label, name, type, value, required) {
-  return `<div class="field"><label>${label}</label><input name="${name}" type="${type}" value="${value || ""}" ${required ? "required" : ""}></div>`;
+function field(label, name, type, value, required, placeholder = "") {
+  return `<div class="field"><label>${label}</label><input name="${name}" type="${type}" value="${value || ""}" placeholder="${placeholder}" ${required ? "required" : ""}></div>`;
+}
+
+function normalizePhone(phone) {
+  let digits = String(phone || "").replace(/\D/g, "");
+  digits = digits.replace(/^0+/, "");
+  if (digits.length === 10) digits = `91${digits}`;
+  return digits;
+}
+
+function reminderMessage(client, payment) {
+  const amount = money(payment?.amount || client.monthlyFee);
+  const dueDate = formatDate(payment?.dueDate);
+  return `Hi ${client.name}, this is a reminder for your gym training fee of ${amount}, due on ${dueDate}. Please share once paid. Thank you!`;
+}
+
+function whatsappUrl(phone, message) {
+  const encoded = encodeURIComponent(message);
+  const desktop = !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (desktop) return `https://web.whatsapp.com/send?phone=${phone}&text=${encoded}`;
+  return `https://wa.me/${phone}?text=${encoded}`;
+}
+
+async function copyReminderMessage(message) {
+  try {
+    await navigator.clipboard.writeText(message);
+    syncStatus = "Reminder copied";
+  } catch (error) {
+    console.error(error);
+    syncStatus = "Copy failed";
+  }
+  render();
 }
 
 function openWhatsApp(clientId) {
   const client = clientById(clientId);
   const payment = paymentForClient(clientId);
-  const amount = money(payment?.amount || client.monthlyFee);
-  const dueDate = formatDate(payment?.dueDate);
-  const message = `Hi ${client.name}, this is a reminder for your gym training fee of ${amount}, due on ${dueDate}. Please share once paid. Thank you!`;
-  window.open(`https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  const message = reminderMessage(client, payment);
+  const phone = normalizePhone(client.phone);
+
+  if (phone.length < 11) {
+    modal = {
+      type: "reminder",
+      clientId,
+      message,
+      error: "Add a valid WhatsApp number. For India, 10 digits is enough; the app will add 91 automatically."
+    };
+    render();
+    return;
+  }
+
+  window.open(whatsappUrl(phone, message), "_blank", "noopener,noreferrer");
 }
 
 function addInitialPayment(client) {
@@ -828,6 +885,11 @@ document.addEventListener("click", (event) => {
   const loadSheet = event.target.closest("[data-load-sheet]");
   if (loadSheet) {
     loadSheetData();
+  }
+
+  const copyReminder = event.target.closest("[data-copy-reminder]");
+  if (copyReminder) {
+    copyReminderMessage(modal.message);
   }
 });
 
