@@ -98,7 +98,8 @@ const exerciseCatalog = [
   name,
   equipment,
   notes,
-  imageUrl: exerciseImages[bodyPart]
+  imageUrl: exerciseImages[bodyPart],
+  demoUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(`${name} exercise correct form`)}`
 }));
 
 const seedData = {
@@ -715,9 +716,18 @@ function modalBody() {
   if (modal.type === "exerciseDetail") {
     const exercise = exerciseById(modal.exerciseId);
     if (!exercise) return `<div class="empty">Exercise not found.</div>`;
+    const demoUrl = exerciseVideoUrl(exercise);
     return `
       <div class="exercise-detail">
-        <img class="exercise-hero" src="${exercise.imageUrl || exerciseImages[exercise.bodyPart]}" alt="${exercise.name} reference">
+        ${hasCustomImage(exercise)
+          ? `<img class="exercise-hero" src="${exercise.imageUrl}" alt="${exercise.name} reference">`
+          : `<a class="demo-card" href="${demoUrl}" target="_blank" rel="noopener noreferrer">
+              <img src="${exercise.imageUrl || exerciseImages[exercise.bodyPart]}" alt="">
+              <span>
+                <strong>Open real demo</strong>
+                <small>Watch a person demonstrate ${exercise.name} with correct form.</small>
+              </span>
+            </a>`}
         <div class="chips">
           <span class="chip">${exercise.bodyPart}</span>
           <span class="chip">${exercise.level}</span>
@@ -730,7 +740,7 @@ function modalBody() {
           <div><strong>Move</strong><span>Use a controlled range of motion and avoid rushing the rep.</span></div>
           <div><strong>Coach cue</strong><span>${exercise.notes || "Keep breathing steady and stop if form breaks."}</span></div>
         </div>
-        <a class="btn primary media-link" href="${exerciseVideoUrl(exercise)}" target="_blank" rel="noopener noreferrer">Watch explainer</a>
+        <a class="btn primary media-link" href="${demoUrl}" target="_blank" rel="noopener noreferrer">Watch explainer</a>
       </div>
     `;
   }
@@ -756,7 +766,7 @@ function modalBody() {
             <label class="pack-item">
               <input type="checkbox" data-pack-exercise value="${exercise.id}" checked>
               <img src="${exercise.imageUrl || exerciseImages[exercise.bodyPart]}" alt="">
-              <span><strong>${exercise.name}</strong><small>${exercise.notes}</small></span>
+              <span><strong>${exercise.name}</strong><small>${exercise.notes}</small><small>Demo link included</small></span>
             </label>
           `).join("") || `<div class="empty">No ${client?.level || ""} exercises found for ${selectedPart}.</div>`}
         </div>
@@ -790,6 +800,7 @@ function modalBody() {
       <div class="field"><label>Level</label><select name="level">${levels.map((level) => `<option>${level}</option>`).join("")}</select></div>
       ${field("Equipment", "equipment", "text", "Gym floor", false)}
       ${field("Reference image URL", "imageUrl", "url", "", false)}
+      ${field("Demo video/image URL", "demoUrl", "url", "", false)}
       <div class="field"><label>Notes</label><textarea name="notes"></textarea></div>
       <button class="btn primary" type="submit">Save exercise</button>
     </form>
@@ -821,7 +832,11 @@ function whatsappUrl(phone, message) {
 }
 
 function exerciseVideoUrl(exercise) {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exercise.name} exercise form`)}`;
+  return exercise.demoUrl || exercise.videoUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exercise.name} exercise correct form`)}`;
+}
+
+function hasCustomImage(exercise) {
+  return Boolean(exercise.imageUrl && !String(exercise.imageUrl).startsWith("assets/exercises/"));
 }
 
 function exerciseById(id) {
@@ -835,7 +850,10 @@ function exercisesForPack(client, bodyPart) {
 }
 
 function workoutPackMessage(client, bodyPart, exercises) {
-  const lines = exercises.map((exercise, index) => `${index + 1}. ${exercise.name} - ${exercise.notes || exercise.equipment || "Controlled reps"}`);
+  const lines = exercises.map((exercise, index) => {
+    const demo = exerciseVideoUrl(exercise);
+    return `${index + 1}. ${exercise.name} - ${exercise.notes || exercise.equipment || "Controlled reps"}\n   Demo: ${demo}`;
+  });
   return [
     `Hi ${client.name}, today's ${bodyPart} workout (${client.level}) is:`,
     "",
@@ -1143,7 +1161,8 @@ async function handleSubmit(form) {
       name: data.get("name"),
       equipment: data.get("equipment"),
       notes: data.get("notes"),
-      imageUrl: data.get("imageUrl") || exerciseImages[data.get("bodyPart")]
+      imageUrl: data.get("imageUrl") || exerciseImages[data.get("bodyPart")],
+      demoUrl: data.get("demoUrl") || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${data.get("name")} exercise correct form`)}`
     };
     state.exercises.push(exercise);
     remoteAction = "createExercise";

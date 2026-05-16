@@ -11,7 +11,7 @@ Mobile-first MVP for a freelance gym trainer who manages clients across multiple
 - Opens WhatsApp with a prefilled reminder message
 - Logs attendance, body parts trained, exercises, and notes
 - Provides a larger exercise library filtered by body part and level, with reference thumbnails
-- Opens exercise guides with image references, coaching cues, and an explainer video search
+- Opens exercise guides with coach cues and real demo video/image links
 - Shares level-based workout packs to clients by body part through WhatsApp
 - Adds basic local password protection with a security-question reset flow
 - Includes a Google Apps Script backend starter for Google Sheets

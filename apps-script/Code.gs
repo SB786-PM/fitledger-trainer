@@ -12,7 +12,7 @@ const HEADERS = {
   Clients: ["id", "name", "phone", "societyId", "startDate", "monthlyFee", "level", "status", "notes"],
   Payments: ["id", "clientId", "cycleStart", "dueDate", "amount", "paidDate", "method", "status"],
   Sessions: ["id", "clientId", "date", "attended", "bodyParts", "exercises", "notes"],
-  Exercises: ["id", "bodyPart", "level", "name", "equipment", "notes", "imageUrl"],
+  Exercises: ["id", "bodyPart", "level", "name", "equipment", "notes", "imageUrl", "demoUrl"],
   BodyParts: ["name"]
 };
 
@@ -217,7 +217,8 @@ function seedWorkbook() {
     name: item[2],
     equipment: item[3],
     notes: item[4],
-    imageUrl: imageMap[item[0]]
+    imageUrl: imageMap[item[0]],
+    demoUrl: "https://www.youtube.com/results?search_query=" + encodeURIComponent(item[2] + " exercise correct form")
   }));
 
   bodyParts.forEach((name) => createRow(SHEETS.bodyParts, { name: name }));
