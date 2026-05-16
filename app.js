@@ -573,7 +573,7 @@ function exercisesView() {
             (exercise) => `
             <article class="client-card">
               <div class="exercise-card" data-exercise="${exercise.id}">
-                <img class="exercise-thumb" src="${exercise.imageUrl || exerciseImages[exercise.bodyPart]}" alt="${exercise.bodyPart} reference">
+                <img class="exercise-thumb" src="${displayImageUrl(exercise.imageUrl) || exerciseImages[exercise.bodyPart]}" alt="${exercise.bodyPart} reference">
                 <div class="exercise-copy">
                   <div class="client-main">
                     <div>
@@ -695,6 +695,7 @@ function modalBody() {
         <div class="actions">
           <button class="btn primary" type="submit">Save and load sheet</button>
           <button class="btn" type="button" data-load-sheet>Load sheet now</button>
+          <button class="btn" type="button" data-clear-local>Clear local cache</button>
           <button class="btn" type="button" data-modal="security">Reset password</button>
         </div>
       </form>
@@ -720,9 +721,9 @@ function modalBody() {
     return `
       <div class="exercise-detail">
         ${hasCustomImage(exercise)
-          ? `<img class="exercise-hero" src="${exercise.imageUrl}" alt="${exercise.name} reference">`
+          ? `<img class="exercise-hero" src="${displayImageUrl(exercise.imageUrl)}" alt="${exercise.name} reference">`
           : `<a class="demo-card" href="${demoUrl}" target="_blank" rel="noopener noreferrer">
-              <img src="${exercise.imageUrl || exerciseImages[exercise.bodyPart]}" alt="">
+              <img src="${displayImageUrl(exercise.imageUrl) || exerciseImages[exercise.bodyPart]}" alt="">
               <span>
                 <strong>Open real demo</strong>
                 <small>Watch a person demonstrate ${exercise.name} with correct form.</small>
@@ -765,7 +766,7 @@ function modalBody() {
           ${exercises.map((exercise) => `
             <label class="pack-item">
               <input type="checkbox" data-pack-exercise value="${exercise.id}" checked>
-              <img src="${exercise.imageUrl || exerciseImages[exercise.bodyPart]}" alt="">
+              <img src="${displayImageUrl(exercise.imageUrl) || exerciseImages[exercise.bodyPart]}" alt="">
               <span><strong>${exercise.name}</strong><small>${exercise.notes}</small><small>Demo link included</small></span>
             </label>
           `).join("") || `<div class="empty">No ${client?.level || ""} exercises found for ${selectedPart}.</div>`}
@@ -833,6 +834,14 @@ function whatsappUrl(phone, message) {
 
 function exerciseVideoUrl(exercise) {
   return exercise.demoUrl || exercise.videoUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exercise.name} exercise correct form`)}`;
+}
+
+function displayImageUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) return "";
+  const driveMatch = value.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([^/&?]+)/);
+  if (driveMatch) return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1200`;
+  return value;
 }
 
 function hasCustomImage(exercise) {
@@ -999,11 +1008,11 @@ function loadSheetData() {
 
 function normalizeRemoteData(data) {
   const next = {
-    societies: data.societies?.length ? data.societies : state.societies,
-    clients: data.clients || [],
-    payments: data.payments || [],
-    sessions: data.sessions || [],
-    exercises: data.exercises?.length ? data.exercises : state.exercises
+    societies: Array.isArray(data.societies) ? data.societies : [],
+    clients: Array.isArray(data.clients) ? data.clients : [],
+    payments: Array.isArray(data.payments) ? data.payments : [],
+    sessions: Array.isArray(data.sessions) ? data.sessions : [],
+    exercises: Array.isArray(data.exercises) && data.exercises.length ? data.exercises : exerciseCatalog
   };
 
   next.clients = next.clients.map((client) => ({ ...client, monthlyFee: Number(client.monthlyFee || 0) }));
@@ -1013,8 +1022,23 @@ function normalizeRemoteData(data) {
     attended: session.attended === true || String(session.attended).toLowerCase() === "true",
     bodyParts: Array.isArray(session.bodyParts) ? session.bodyParts : String(session.bodyParts || "").split(",").filter(Boolean)
   }));
+  next.exercises = next.exercises.map((exercise) => ({
+    ...exercise,
+    imageUrl: exercise.imageUrl || exerciseImages[exercise.bodyPart],
+    demoUrl: exercise.demoUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exercise.name} exercise correct form`)}`
+  }));
 
   return next;
+}
+
+function clearLocalDataAndReload() {
+  localStorage.removeItem(STORAGE_KEY);
+  state = structuredClone(seedData);
+  selectedClientId = "";
+  clientDetailOpen = false;
+  syncStatus = "Local cleared";
+  if (isSheetConnected()) loadSheetData();
+  else render();
 }
 
 async function sendToSheet(action, payload) {
@@ -1261,6 +1285,11 @@ document.addEventListener("click", (event) => {
   const loadSheet = event.target.closest("[data-load-sheet]");
   if (loadSheet) {
     loadSheetData();
+  }
+
+  const clearLocal = event.target.closest("[data-clear-local]");
+  if (clearLocal) {
+    clearLocalDataAndReload();
   }
 
   const copyReminder = event.target.closest("[data-copy-reminder]");

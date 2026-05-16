@@ -79,6 +79,26 @@ For the simplest v1 private-link setup, deploy the Web App with:
 
 This does not make the Google Sheet itself public. It only lets the app call your Apps Script URL.
 
+## Exercise Images From Google Drive
+
+To show real exercise demo images:
+
+1. Upload the image to Google Drive.
+2. Right-click the image > Share.
+3. Set General access to `Anyone with the link` and Viewer.
+4. Copy the share link.
+5. Paste it into the `imageUrl` column in the `Exercises` sheet.
+
+The app converts common Drive links like this:
+
+```text
+https://drive.google.com/file/d/FILE_ID/view
+```
+
+into a renderable thumbnail URL automatically.
+
+For videos or external explainers, paste a YouTube/Drive/video link into `demoUrl`. Workout packs shared on WhatsApp include those demo links.
+
 ## Sheet Tabs
 
 - `Societies`: society gyms
