@@ -227,6 +227,7 @@ button.sync-pill {
   grid-template-columns: 92px 1fr;
   gap: 12px;
   align-items: center;
+  cursor: pointer;
 }
 
 .exercise-thumb {
@@ -240,6 +241,48 @@ button.sync-pill {
 
 .exercise-copy {
   min-width: 0;
+}
+
+.exercise-detail {
+  display: grid;
+  gap: 14px;
+}
+
+.exercise-detail h3 {
+  margin: 0;
+}
+
+.exercise-hero {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f7fbf3;
+}
+
+.guide-steps {
+  display: grid;
+  gap: 8px;
+}
+
+.guide-steps div {
+  display: grid;
+  gap: 3px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.guide-steps span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.media-link {
+  text-align: center;
+  text-decoration: none;
 }
 
 .client-main {
@@ -621,8 +664,76 @@ button.sync-pill {
   position: sticky;
   bottom: calc(-18px - env(safe-area-inset-bottom));
   display: grid;
+  gap: 8px;
   padding: 10px 0 calc(2px + env(safe-area-inset-bottom));
   background: linear-gradient(to top, #fff 82%, rgba(255, 255, 255, 0));
+}
+
+.pack-builder {
+  gap: 10px;
+}
+
+.pack-list {
+  display: grid;
+  gap: 8px;
+}
+
+.pack-item {
+  display: grid;
+  grid-template-columns: 20px 54px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.pack-item img {
+  width: 54px;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.pack-item span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pack-item small {
+  color: var(--muted);
+}
+
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 18px;
+  background: var(--paper);
+}
+
+.auth-card {
+  display: grid;
+  gap: 16px;
+  width: min(440px, 100%);
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.auth-brand {
+  align-items: flex-start;
+}
+
+.auth-link {
+  justify-self: start;
+  padding-inline: 0;
+  color: var(--green-dark);
 }
 
 @media (max-width: 430px) {
@@ -686,6 +797,14 @@ button.sync-pill {
 
   .short-textarea {
     min-height: 52px;
+  }
+
+  .pack-item {
+    grid-template-columns: 20px 46px 1fr;
+  }
+
+  .pack-item img {
+    width: 46px;
   }
 }
 

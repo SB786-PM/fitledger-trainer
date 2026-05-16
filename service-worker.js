@@ -1,4 +1,4 @@
-const CACHE_NAME = "fitledger-v2";
+const CACHE_NAME = "fitledger-v3";
 const APP_SHELL = [
   "./",
   "./index.html",

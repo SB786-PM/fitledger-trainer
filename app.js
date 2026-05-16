@@ -1,5 +1,6 @@
 const STORAGE_KEY = "fitledger-v2";
 const CONFIG_KEY = "fitledger-config-v1";
+const AUTH_KEY = "fitledger-auth-v1";
 
 const bodyParts = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Cardio", "Mobility"];
 const levels = ["Beginner", "Intermediate", "Advanced"];
@@ -110,6 +111,10 @@ const seedData = {
 
 let state = loadState();
 let config = loadConfig();
+let auth = loadAuth();
+let authMode = auth.passwordHash ? "login" : "setup";
+let authError = "";
+let resetVerified = false;
 let syncStatus = config.webAppUrl ? "Connected" : "Local only";
 let activeView = "clients";
 let selectedClientId = state.clients[0]?.id || "";
@@ -136,6 +141,38 @@ function saveConfig() {
 
 function isSheetConnected() {
   return Boolean(config.webAppUrl);
+}
+
+function loadAuth() {
+  const saved = localStorage.getItem(AUTH_KEY);
+  return saved ? JSON.parse(saved) : { passwordHash: "", question: "", answerHash: "" };
+}
+
+function saveAuth() {
+  localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
+}
+
+function isUnlocked() {
+  return sessionStorage.getItem("fitledger-unlocked") === "true";
+}
+
+function setUnlocked(value) {
+  if (value) sessionStorage.setItem("fitledger-unlocked", "true");
+  else sessionStorage.removeItem("fitledger-unlocked");
+}
+
+async function hashText(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!crypto.subtle) {
+    let hash = 0;
+    for (let index = 0; index < normalized.length; index += 1) {
+      hash = ((hash << 5) - hash + normalized.charCodeAt(index)) | 0;
+    }
+    return `fallback-${hash}`;
+  }
+  const bytes = new TextEncoder().encode(normalized);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hash)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function uid(prefix) {
@@ -236,6 +273,39 @@ function appChrome(content) {
   `;
 }
 
+function authView() {
+  const isSetup = authMode === "setup";
+  const isReset = authMode === "reset";
+  const title = isSetup ? "Set app password" : isReset ? "Reset password" : "Enter password";
+  const helper = isSetup
+    ? "Create a simple password for this device."
+    : isReset
+      ? "Answer your security question to set a new password."
+      : "Unlock FitLedger to continue.";
+
+  return `
+    <div class="auth-shell">
+      <section class="auth-card">
+        <div class="brand auth-brand">
+          <div class="brand-mark">FL</div>
+          <div>
+            <h1>FitLedger</h1>
+            <p>${helper}</p>
+          </div>
+        </div>
+        ${authError ? `<p class="notice error">${authError}</p>` : ""}
+        <form class="form-grid" data-submit="${isSetup ? "authSetup" : isReset ? "authReset" : "authLogin"}">
+          ${isReset ? `<div class="notice"><strong>${auth.question || "Security question"}</strong></div><div class="field"><label>Security answer</label><input name="answer" type="text" required></div>` : ""}
+          ${isSetup ? `<div class="field"><label>Security question</label><input name="question" type="text" placeholder="Example: trainer's nickname?" required></div><div class="field"><label>Security answer</label><input name="answer" type="text" required></div>` : ""}
+          <div class="field"><label>${isReset ? "New password" : "Password"}</label><input name="password" type="password" minlength="4" required></div>
+          <button class="btn primary" type="submit">${isSetup ? "Create password" : isReset ? "Reset password" : "Unlock"}</button>
+        </form>
+        ${!isSetup ? `<button class="btn ghost auth-link" data-auth-mode="${isReset ? "login" : "reset"}">${isReset ? "Back to login" : "Forgot password?"}</button>` : ""}
+      </section>
+    </div>
+  `;
+}
+
 function clientsView() {
   const selected = clientById(selectedClientId) || state.clients[0];
   if (clientDetailOpen && selected) return clientDetailView(selected);
@@ -307,6 +377,7 @@ function clientDetailView(client) {
       </div>
       <div class="actions">
         <button class="btn primary" data-modal="session" data-client="${client.id}">Log workout</button>
+        <button class="btn whatsapp" data-modal="pack" data-client="${client.id}">Send pack</button>
         <button class="btn" data-modal="payment" data-client="${client.id}">Record payment</button>
       </div>
     </div>
@@ -500,7 +571,7 @@ function exercisesView() {
           .map(
             (exercise) => `
             <article class="client-card">
-              <div class="exercise-card">
+              <div class="exercise-card" data-exercise="${exercise.id}">
                 <img class="exercise-thumb" src="${exercise.imageUrl || exerciseImages[exercise.bodyPart]}" alt="${exercise.bodyPart} reference">
                 <div class="exercise-copy">
                   <div class="client-main">
@@ -523,7 +594,7 @@ function exercisesView() {
 }
 
 function renderModal() {
-  const title = { client: "Add client", society: "Add society", session: "Log workout", payment: "Record payment", exercise: "Add exercise", settings: "Google Sheets sync", reminder: "WhatsApp reminder" }[modal.type];
+  const title = { client: "Add client", society: "Add society", session: "Log workout", payment: "Record payment", exercise: "Add exercise", exerciseDetail: "Exercise guide", pack: "Send workout pack", settings: "Google Sheets sync", security: "Security", reminder: "WhatsApp reminder" }[modal.type];
   return `
     <div class="modal-backdrop">
       <section class="modal">
@@ -623,8 +694,77 @@ function modalBody() {
         <div class="actions">
           <button class="btn primary" type="submit">Save and load sheet</button>
           <button class="btn" type="button" data-load-sheet>Load sheet now</button>
+          <button class="btn" type="button" data-modal="security">Reset password</button>
         </div>
       </form>
+    `;
+  }
+
+  if (modal.type === "security") {
+    return `
+      <form class="form-grid" data-submit="security">
+        <p class="notice">This password protects this device/browser. It is not a replacement for full server-side authentication.</p>
+        <div class="field"><label>New password</label><input name="password" type="password" minlength="4" required></div>
+        <div class="field"><label>Security question</label><input name="question" type="text" value="${auth.question || ""}" required></div>
+        <div class="field"><label>Security answer</label><input name="answer" type="text" required></div>
+        <button class="btn primary" type="submit">Save password</button>
+      </form>
+    `;
+  }
+
+  if (modal.type === "exerciseDetail") {
+    const exercise = exerciseById(modal.exerciseId);
+    if (!exercise) return `<div class="empty">Exercise not found.</div>`;
+    return `
+      <div class="exercise-detail">
+        <img class="exercise-hero" src="${exercise.imageUrl || exerciseImages[exercise.bodyPart]}" alt="${exercise.name} reference">
+        <div class="chips">
+          <span class="chip">${exercise.bodyPart}</span>
+          <span class="chip">${exercise.level}</span>
+          <span class="chip">${exercise.equipment}</span>
+        </div>
+        <h3>${exercise.name}</h3>
+        <p class="meta">${exercise.notes || "Use controlled form and adjust load to the client."}</p>
+        <div class="guide-steps">
+          <div><strong>Setup</strong><span>Choose the right load, brace the core, and set a stable position.</span></div>
+          <div><strong>Move</strong><span>Use a controlled range of motion and avoid rushing the rep.</span></div>
+          <div><strong>Coach cue</strong><span>${exercise.notes || "Keep breathing steady and stop if form breaks."}</span></div>
+        </div>
+        <a class="btn primary media-link" href="${exerciseVideoUrl(exercise)}" target="_blank" rel="noopener noreferrer">Watch explainer</a>
+      </div>
+    `;
+  }
+
+  if (modal.type === "pack") {
+    const client = clientById(modal.clientId);
+    const selectedPart = modal.bodyPart || bodyParts[0];
+    const exercises = client ? exercisesForPack(client, selectedPart) : [];
+    return `
+      <div class="form-grid pack-builder">
+        <div class="workout-client">
+          <strong>${client?.name || "Client"}</strong>
+          <span>${client ? `${client.level} · ${societyName(client.societyId)}` : "Workout pack"}</span>
+        </div>
+        <div class="field">
+          <label>Body part</label>
+          <select data-pack-body>
+            ${bodyParts.map((part) => `<option ${part === selectedPart ? "selected" : ""}>${part}</option>`).join("")}
+          </select>
+        </div>
+        <div class="pack-list">
+          ${exercises.map((exercise) => `
+            <label class="pack-item">
+              <input type="checkbox" data-pack-exercise value="${exercise.id}" checked>
+              <img src="${exercise.imageUrl || exerciseImages[exercise.bodyPart]}" alt="">
+              <span><strong>${exercise.name}</strong><small>${exercise.notes}</small></span>
+            </label>
+          `).join("") || `<div class="empty">No ${client?.level || ""} exercises found for ${selectedPart}.</div>`}
+        </div>
+        <div class="modal-actions">
+          <button class="btn whatsapp" type="button" data-send-pack="${client?.id || ""}">Send on WhatsApp</button>
+          <button class="btn" type="button" data-copy-pack="${client?.id || ""}">Copy pack</button>
+        </div>
+      </div>
     `;
   }
 
@@ -680,6 +820,31 @@ function whatsappUrl(phone, message) {
   return `https://wa.me/${phone}?text=${encoded}`;
 }
 
+function exerciseVideoUrl(exercise) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exercise.name} exercise form`)}`;
+}
+
+function exerciseById(id) {
+  return state.exercises.find((exercise) => exercise.id === id);
+}
+
+function exercisesForPack(client, bodyPart) {
+  return state.exercises
+    .filter((exercise) => exercise.bodyPart === bodyPart && exercise.level === client.level)
+    .slice(0, 6);
+}
+
+function workoutPackMessage(client, bodyPart, exercises) {
+  const lines = exercises.map((exercise, index) => `${index + 1}. ${exercise.name} - ${exercise.notes || exercise.equipment || "Controlled reps"}`);
+  return [
+    `Hi ${client.name}, today's ${bodyPart} workout (${client.level}) is:`,
+    "",
+    ...lines,
+    "",
+    "Warm up first, keep form controlled, and stop if there is pain. Message me once done."
+  ].join("\n");
+}
+
 async function copyReminderMessage(message) {
   try {
     await navigator.clipboard.writeText(message);
@@ -689,6 +854,48 @@ async function copyReminderMessage(message) {
     syncStatus = "Copy failed";
   }
   render();
+}
+
+function selectedPackExercises() {
+  return [...document.querySelectorAll("[data-pack-exercise]:checked")]
+    .map((input) => exerciseById(input.value))
+    .filter(Boolean);
+}
+
+async function copyWorkoutPack(clientId) {
+  const client = clientById(clientId);
+  if (!client) return;
+  const bodyPart = modal.bodyPart || bodyParts[0];
+  const exercises = selectedPackExercises();
+  await copyReminderMessage(workoutPackMessage(client, bodyPart, exercises));
+}
+
+function sendWorkoutPack(clientId) {
+  const client = clientById(clientId);
+  if (!client) return;
+  const phone = normalizePhone(client.phone);
+  const bodyPart = modal.bodyPart || bodyParts[0];
+  const exercises = selectedPackExercises();
+  const message = workoutPackMessage(client, bodyPart, exercises);
+
+  if (!exercises.length) {
+    syncStatus = "Select exercises";
+    render();
+    return;
+  }
+
+  if (phone.length < 11) {
+    modal = {
+      type: "reminder",
+      clientId,
+      message,
+      error: "Add a valid WhatsApp number before sending this pack."
+    };
+    render();
+    return;
+  }
+
+  window.open(whatsappUrl(phone, message), "_blank", "noopener,noreferrer");
 }
 
 function openWhatsApp(clientId) {
@@ -821,6 +1028,48 @@ async function handleSubmit(form) {
   let remoteAction = "";
   let remotePayload = {};
 
+  if (form.dataset.submit === "authSetup") {
+    auth = {
+      passwordHash: await hashText(data.get("password")),
+      question: data.get("question"),
+      answerHash: await hashText(data.get("answer"))
+    };
+    saveAuth();
+    setUnlocked(true);
+    authError = "";
+    render();
+    return;
+  }
+
+  if (form.dataset.submit === "authLogin") {
+    const passwordHash = await hashText(data.get("password"));
+    if (passwordHash !== auth.passwordHash) {
+      authError = "Incorrect password.";
+      render();
+      return;
+    }
+    setUnlocked(true);
+    authError = "";
+    render();
+    return;
+  }
+
+  if (form.dataset.submit === "authReset") {
+    const answerHash = await hashText(data.get("answer"));
+    if (answerHash !== auth.answerHash) {
+      authError = "Security answer did not match.";
+      render();
+      return;
+    }
+    auth.passwordHash = await hashText(data.get("password"));
+    saveAuth();
+    setUnlocked(true);
+    authMode = "login";
+    authError = "";
+    render();
+    return;
+  }
+
   if (form.dataset.submit === "society") {
     const society = {
       id: uid("soc"),
@@ -909,6 +1158,19 @@ async function handleSubmit(form) {
     return;
   }
 
+  if (form.dataset.submit === "security") {
+    auth = {
+      passwordHash: await hashText(data.get("password")),
+      question: data.get("question"),
+      answerHash: await hashText(data.get("answer"))
+    };
+    saveAuth();
+    modal = null;
+    syncStatus = "Password updated";
+    render();
+    return;
+  }
+
   modal = null;
   saveState();
   if (remoteAction) await sendToSheet(remoteAction, remotePayload);
@@ -916,11 +1178,22 @@ async function handleSubmit(form) {
 }
 
 function render() {
+  if (!isUnlocked()) {
+    document.querySelector("#app").innerHTML = authView();
+    return;
+  }
   const views = { clients: clientsView, payments: paymentsView, finance: financeView, exercises: exercisesView };
   document.querySelector("#app").innerHTML = views[activeView]();
 }
 
 document.addEventListener("click", (event) => {
+  const authModeButton = event.target.closest("[data-auth-mode]");
+  if (authModeButton) {
+    authMode = authModeButton.dataset.authMode;
+    authError = "";
+    render();
+  }
+
   const view = event.target.closest("[data-view]");
   if (view) {
     activeView = view.dataset.view;
@@ -949,6 +1222,12 @@ document.addEventListener("click", (event) => {
     render();
   }
 
+  const exerciseCard = event.target.closest("[data-exercise]");
+  if (exerciseCard) {
+    modal = { type: "exerciseDetail", exerciseId: exerciseCard.dataset.exercise };
+    render();
+  }
+
   const close = event.target.closest("[data-close]");
   if (close || event.target.classList.contains("modal-backdrop")) {
     modal = null;
@@ -969,6 +1248,16 @@ document.addEventListener("click", (event) => {
   if (copyReminder) {
     copyReminderMessage(modal.message);
   }
+
+  const sendPack = event.target.closest("[data-send-pack]");
+  if (sendPack) {
+    sendWorkoutPack(sendPack.dataset.sendPack);
+  }
+
+  const copyPack = event.target.closest("[data-copy-pack]");
+  if (copyPack) {
+    copyWorkoutPack(copyPack.dataset.copyPack);
+  }
 });
 
 document.addEventListener("submit", (event) => {
@@ -977,6 +1266,10 @@ document.addEventListener("submit", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-pack-body]")) {
+    modal.bodyPart = event.target.value;
+    render();
+  }
   if (event.target.matches("[data-filter]")) render();
 });
 
